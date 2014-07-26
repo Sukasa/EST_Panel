@@ -112,13 +112,39 @@ namespace EST_Panel
 
             ESTPanelSet Set = new ESTPanelSet(SPI_Devices.SPI1, Pins.GPIO_PIN_D0, 1, Pins.GPIO_PIN_D1);
             ESTPanelSet.ESTPanel Panel = Set.Panels[0];
-
+            int i = 0;
+            bool t = true;
             while (true)
             {
-                Panel.SetLight(R.Next(36), ESTPanelSet.Lights.Alarm, R.Next(2) == 1);
+                Panel.SetRaw(i, t);
+                i++;
+                if (i == 90)
+                {
+                    i = 0;
+                    t = !t;
+                }
+                //String S = "";
+                //foreach (byte B in Set._InBuff)
+                //{
+                //    S += B.ToString("X") + " ";
+                //}
+                //for (int I = 0; I < 5; I++)
+                    //Debug.Print(StateLine(I, Panel));
+                //Debug.Print(S);
                 Set.Refresh();
+                Thread.Sleep(10);
             }
 
+        }
+
+        public static string StateLine(int Line, ESTPanelSet.ESTPanel Panel)
+        {
+            string S = "";
+
+            for (int B = 1; B < 7; B++)
+                S += Panel.ReadButton((B * 5) + Line) ? "X" : ".";
+
+            return S;
         }
 
     }
