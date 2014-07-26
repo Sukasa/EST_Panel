@@ -1,0 +1,9 @@
+X, Y (1, 1 at top left)
+4, 5 button maps to 1, 4
+6, 3 maps to 3, 2
+
+3, 2 maps to bit 0 (0x01) in byte 1
+
+1, 4 is not picked up?
+
+All others: Bit index = (ButtonX * 5) + ButtonY
