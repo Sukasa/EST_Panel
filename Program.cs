@@ -15,6 +15,8 @@ namespace EST_Panel
         private SPI.Configuration _Config = null;
         SPI SPIBus;
         private byte[] _Buffer;
+        private byte[] _OutBuff;
+        public byte[] _InBuff;
         private OutputPort _Latch;
         private int _Modules;
         private ESTPanel[] _Panels;
@@ -23,14 +25,15 @@ namespace EST_Panel
         {
             Alarm = 0,
             Trouble = 1,
-            supervisory = 2
+            Supervisory = 2
         }
 
         public ESTPanelSet(SPI.SPI_module SPIModule, Cpu.Pin ChipSelectPort, int NumModules, Cpu.Pin LatchPort)
         {
-            _Config = new SPI.Configuration(ChipSelectPort, false, 0, 0, false, false, 5000, SPIModule);
+            _Config = new SPI.Configuration(ChipSelectPort, false, 0, 0, false, false, 10000, SPIModule);
             _Latch = new OutputPort(LatchPort, false);
-            _Buffer = new byte[NumModules * 17];
+            _Buffer = new byte[(NumModules * 17)];
+            _InBuff = new byte[17];
             _Modules = NumModules;
             _Panels = new ESTPanel[_Modules];
 
@@ -50,8 +53,11 @@ namespace EST_Panel
 
         public void Refresh()
         {
-            int Count = 17 * _Modules;
-            SPIBus.WriteRead(_Buffer, 0, Count, _Buffer, 12, Count - 12, 0);
+            for (int Panel = 0; Panel < _Modules; Panel++)
+            {
+                SPIBus.WriteRead(_Buffer, (Panel * 17), 17, _InBuff, 0, 17, 0); //Exchange IO Data with next panel
+                Array.Copy(_InBuff, 0, _Buffer, Panel * 17, 5); // Copy button data in to buffer
+            }
             _Latch.Write(true);
             _Latch.Write(false);
         }
@@ -70,20 +76,27 @@ namespace EST_Panel
 
             public void SetLight(int ButtonIndex, Lights Light, bool LightState)
             {
-                int BitAddr = (ButtonIndex * 3 + (int)Light);
-                int LightValue = _Master._Buffer[(_IndexStart * 17) + BitAddr >> 3];
+                int BitAddr = ((ButtonIndex * 3) + (int)Light);
+                SetRaw(BitAddr, LightState);
+            }
+
+            public void SetRaw(int Index, bool LightState)
+            {
+                int ArrayIndex = (_IndexStart * 17) + 5 + (Index >> 3);
+                int ModifyBit = 1 << (Index & 7);
+                int LightValue = _Master._Buffer[ArrayIndex];
 
                 if (LightState)
-                    LightValue |= (1 << (BitAddr % 8));
+                    LightValue |= ModifyBit;
                 else
-                    LightValue &= ~(1 << (BitAddr % 8));
+                    LightValue &= ~ModifyBit;
 
-                _Master._Buffer[(_IndexStart * 17) + BitAddr >> 3] = (byte)LightValue;
+                _Master._Buffer[ArrayIndex] = (byte)LightValue;
             }
 
             public bool ReadButton(int ButtonIndex)
             {
-                return (_Master._Buffer[_IndexStart * 29 + (ButtonIndex >> 3)] & (1 << (ButtonIndex % 8))) != 0;
+                return (_Master._Buffer[(_IndexStart * 17) + (ButtonIndex >> 3)] & (1 << (ButtonIndex & 7))) == 0;
             }
         }
 
